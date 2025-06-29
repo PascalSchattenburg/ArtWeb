@@ -1,114 +1,112 @@
-const captureButton = document.getElementById('capture-button');
-const imageContainer = document.getElementById('image-container');
-const editorCanvas = document.getElementById('editor-canvas');
+const video = document.getElementById('video');
+const canvas = document.getElementById('editor-canvas');
+const ctx = canvas.getContext('2d');
 const saveButton = document.getElementById('save-button');
+const captureButton = document.getElementById('capture-button');
+const gallery = document.getElementById('gallery');
 
-// Set up event listeners for buttons
-captureButton.addEventListener('click', takePicture);
-saveButton.addEventListener('click', saveChanges);
+const filters = {
+    brightness: 100,
+    contrast: 100,
+    saturation: 100,
+    grayscale: 0,
+    sepia: 0,
+    invert: 0,
+};
 
-let image;
-let editing = false;
+// Kamera starten
+navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => video.srcObject = stream)
+    .catch(err => alert('Kamera-Zugriff verweigert'));
 
-function takePicture() {
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
-            const video = document.createElement('video');
-            video.srcObject = stream;
-            video.play();
+// Foto aufnehmen
+captureButton.addEventListener('click', () => {
+    applyFiltersToContext(ctx); // Filter auf Canvas anwenden
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+});
 
-            // Get the first frame of the video
-            const img = document.createElement('img');
-            img.width = 200;
-            img.height = 150;
-            img.src = video.currentTime * (10 / 30) + 's';
-            img.onload = function() {
-                image = this;
-                imageContainer.innerHTML = '';
-                imageContainer.appendChild(img);
-            };
+// Filter ändern
+document.querySelectorAll('#controls input[type=range]').forEach(slider => {
+    slider.addEventListener('input', () => {
+        filters[slider.id] = slider.value;
+        applyCSSFilters(); // Vorschau anpassen
+    });
+});
 
-        })
-        .catch(error => console.error('Error taking picture:', error));
+// CSS Vorschau (visuell)
+function applyCSSFilters() {
+    canvas.style.filter = `
+    brightness(${filters.brightness}%)
+    contrast(${filters.contrast}%)
+    saturate(${filters.saturation}%)
+    grayscale(${filters.grayscale}%)
+    sepia(${filters.sepia}%)
+    invert(${filters.invert}%)
+  `;
+}
+applyCSSFilters(); // Init
+
+// Canvas-Kontext-Filter anwenden (für Speicherung)
+function applyFiltersToContext(context) {
+    context.filter = `
+    brightness(${filters.brightness}%)
+    contrast(${filters.contrast}%)
+    saturate(${filters.saturation}%)
+    grayscale(${filters.grayscale}%)
+    sepia(${filters.sepia}%)
+    invert(${filters.invert}%)
+  `;
 }
 
-function saveChanges() {
-    if (!image) return;
+// Bild speichern in LocalStorage und anzeigen
+saveButton.addEventListener('click', () => {
+    // Neuen Canvas mit echten Filtern rendern
+    const finalCanvas = document.createElement('canvas');
+    finalCanvas.width = canvas.width;
+    finalCanvas.height = canvas.height;
+    const finalCtx = finalCanvas.getContext('2d');
+    applyFiltersToContext(finalCtx);
+    finalCtx.drawImage(canvas, 0, 0);
 
-    // Create a new canvas element
-    const newCanvas = document.createElement('canvas');
-    newCanvas.width = image.width;
-    newCanvas.height = image.height;
-    const ctx = newCanvas.getContext('2d');
+    const imageData = finalCanvas.toDataURL(); // PNG mit Filtern
 
-    // Draw the original image
-    ctx.drawImage(image, 0, 0);
+    // In Galerie speichern
+    let images = JSON.parse(localStorage.getItem('galleryImages') || '[]');
+    images.push(imageData);
+    localStorage.setItem('galleryImages', JSON.stringify(images));
 
-    // Add event listeners for editing
-    editorCanvas.addEventListener('mousedown', startEditing);
-    editorCanvas.addEventListener('mousemove', editImage);
-    editorCanvas.addEventListener('mouseup', stopEditing);
+    // Galerie neu laden
+    loadGallery();
+});
 
-    // Set up variables to track editing state
-    let drawing = false;
-    let lastX, lastY;
+// Galerie laden
+function loadGallery() {
+    gallery.innerHTML = ''; // leeren
+    const images = JSON.parse(localStorage.getItem('galleryImages') || '[]');
+    images.forEach((dataUrl, index) => {
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        img.width = 100;
 
-    function startEditing(event) {
-        if (!drawing) {
-            drawing = true;
-            lastX = event.clientX - editorCanvas.offsetLeft;
-            lastY = event.clientY - editorCanvas.offsetTop;
-        }
-    }
+        const downloadBtn = document.createElement('a');
+        downloadBtn.href = dataUrl;
+        downloadBtn.download = `webart-${index}.png`;
+        downloadBtn.textContent = '⬇️';
 
-    function editImage(event) {
-        if (drawing) {
-            const x = event.clientX - editorCanvas.offsetLeft;
-            const y = event.clientY - editorCanvas.offsetTop;
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '🗑️';
+        delBtn.onclick = () => {
+            images.splice(index, 1);
+            localStorage.setItem('galleryImages', JSON.stringify(images));
+            loadGallery();
+        };
 
-            // Draw a line from the previous position to the current position
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-
-            // Update the last position
-            lastX = x;
-            lastY = y;
-        }
-    }
-
-    function stopEditing() {
-        drawing = false;
-
-        // Draw a line from the previous position to the new position (to "save" changes)
-        if (lastX !== undefined && lastY !== undefined) {
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(editorCanvas.offsetLeft + editorCanvas.width / 2,
-                editorCanvas.offsetTop + editorCanvas.height / 2);
-            ctx.stroke();
-        }
-    }
-
-    // Draw the new canvas on top of the original image
-    const overlay = document.createElement('canvas');
-    overlay.width = newCanvas.width;
-    overlay.height = newCanvas.height;
-    overlay.style.position = 'absolute';
-    overlay.style.top = '0px';
-    overlay.style.left = '0px';
-    overlay.style.zIndex = '1';
-
-    const ctxOverlay = overlay.getContext('2d');
-
-    // Clone the original image and add the edited version
-    ctxOverlay.drawImage(newCanvas, 0, 0);
-    ctxOverlay.drawImage(image, 0, 0);
-
-    overlay.appendChild(ctxOverlay);
-
-    // Update the canvas with the new overlay
-    imageContainer.innerHTML = '';
-    imageContainer.appendChild(overlay);
+        const container = document.createElement('div');
+        container.appendChild(img);
+        container.appendChild(downloadBtn);
+        container.appendChild(delBtn);
+        gallery.appendChild(container);
+    });
 }
+
+loadGallery(); // beim Start laden
