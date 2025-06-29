@@ -92,18 +92,18 @@ saveButton.addEventListener('click', () => {
     finalCanvas.height = canvas.height;
     const finalCtx = finalCanvas.getContext('2d');
 
-    // ✅ ECHTE Filter anwenden
+    // Filter anwenden auf gespeichertes Bild
     finalCtx.filter = `
-        brightness(${filters.brightness}%)
-        contrast(${filters.contrast}%)
-        saturate(${filters.saturation}%)
-        grayscale(${filters.grayscale}%)
-        sepia(${filters.sepia}%)
-        invert(${filters.invert}%)
-    `;
+    brightness(${filters.brightness}%)
+    contrast(${filters.contrast}%)
+    saturate(${filters.saturation}%)
+    grayscale(${filters.grayscale}%)
+    sepia(${filters.sepia}%)
+    invert(${filters.invert}%)
+  `;
 
-    // ❗ Nicht das Canvas kopieren, sondern das Video-Bild mit Filter zeichnen:
-    finalCtx.drawImage(video, 0, 0, finalCanvas.width, finalCanvas.height);
+    // ❗ Verwende NICHT das Video, sondern das bearbeitete Canvas
+    finalCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height);
 
     const imageData = finalCanvas.toDataURL();
     let images = JSON.parse(localStorage.getItem('galleryImages') || '[]');
