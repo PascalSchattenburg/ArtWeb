@@ -91,15 +91,17 @@ saveButton.addEventListener('click', () => {
     finalCanvas.height = canvas.height;
     const finalCtx = finalCanvas.getContext('2d');
 
-    // Wende die aktuellen visuellen Filter auf den gespeicherten Bildinhalt an
+    // Wende die visuellen Filter aus dem UI auf den finalen Kontext an
     finalCtx.filter = `
-        brightness(${filters.brightness}%)
-        contrast(${filters.contrast}%)
-        saturate(${filters.saturation}%)
-        grayscale(${filters.grayscale}%)
-        sepia(${filters.sepia}%)
-        invert(${filters.invert}%)
-    `;
+    brightness(${filters.brightness}%)
+    contrast(${filters.contrast}%)
+    saturate(${filters.saturation}%)
+    grayscale(${filters.grayscale}%)
+    sepia(${filters.sepia}%)
+    invert(${filters.invert}%)
+  `;
+
+    // ❗ WICHTIG: nicht liveBild, sondern dein aktuelles bearbeitetes canvas zeichnen
     finalCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height);
 
     const imageData = finalCanvas.toDataURL();
