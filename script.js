@@ -15,18 +15,23 @@ const filters = {
 };
 
 // Kamera starten
-let useFrontCamera = true;
+let currentStream;
 
 function startCamera() {
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop()); // ❗ Kamera freigeben
+    }
+
     const constraints = {
         video: {
-            facingMode: useFrontCamera ? 'user' : { exact: 'environment' }
+            facingMode: useFrontCamera ? 'user' : 'environment'
         },
         audio: false
     };
 
     navigator.mediaDevices.getUserMedia(constraints)
         .then(stream => {
+            currentStream = stream;
             video.srcObject = stream;
         })
         .catch(err => {
