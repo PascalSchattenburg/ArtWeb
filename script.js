@@ -46,9 +46,8 @@ document.getElementById('toggle-camera').addEventListener('click', () => {
 
 startCamera(); // Initial starten
 
-// Foto aufnehmen
+// Foto aufnehmen (nur das aktuelle Videobild ohne Filter ins Canvas kopieren)
 captureButton.addEventListener('click', () => {
-    applyFiltersToContext(ctx); // Filter auf Canvas anwenden
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 });
 
@@ -92,17 +91,15 @@ saveButton.addEventListener('click', () => {
     finalCanvas.height = canvas.height;
     const finalCtx = finalCanvas.getContext('2d');
 
-    // Filter anwenden auf gespeichertes Bild
+    // Wende die aktuellen visuellen Filter auf den gespeicherten Bildinhalt an
     finalCtx.filter = `
-    brightness(${filters.brightness}%)
-    contrast(${filters.contrast}%)
-    saturate(${filters.saturation}%)
-    grayscale(${filters.grayscale}%)
-    sepia(${filters.sepia}%)
-    invert(${filters.invert}%)
-  `;
-
-    // ❗ Verwende NICHT das Video, sondern das bearbeitete Canvas
+        brightness(${filters.brightness}%)
+        contrast(${filters.contrast}%)
+        saturate(${filters.saturation}%)
+        grayscale(${filters.grayscale}%)
+        sepia(${filters.sepia}%)
+        invert(${filters.invert}%)
+    `;
     finalCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height);
 
     const imageData = finalCanvas.toDataURL();
