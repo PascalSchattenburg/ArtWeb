@@ -15,9 +15,31 @@ const filters = {
 };
 
 // Kamera starten
-navigator.mediaDevices.getUserMedia({ video: true })
-    .then(stream => video.srcObject = stream)
-    .catch(err => alert('Kamera-Zugriff verweigert'));
+let useFrontCamera = true;
+
+function startCamera() {
+    const constraints = {
+        video: {
+            facingMode: useFrontCamera ? 'user' : { exact: 'environment' }
+        },
+        audio: false
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints)
+        .then(stream => {
+            video.srcObject = stream;
+        })
+        .catch(err => {
+            alert('Kamera konnte nicht gestartet werden: ' + err.message);
+        });
+}
+
+document.getElementById('toggle-camera').addEventListener('click', () => {
+    useFrontCamera = !useFrontCamera;
+    startCamera();
+});
+
+startCamera(); // Initial starten
 
 // Foto aufnehmen
 captureButton.addEventListener('click', () => {
@@ -60,22 +82,28 @@ function applyFiltersToContext(context) {
 
 // Bild speichern in LocalStorage und anzeigen
 saveButton.addEventListener('click', () => {
-    // Neuen Canvas mit echten Filtern rendern
     const finalCanvas = document.createElement('canvas');
     finalCanvas.width = canvas.width;
     finalCanvas.height = canvas.height;
     const finalCtx = finalCanvas.getContext('2d');
-    applyFiltersToContext(finalCtx);
+
+    // Filter wirklich auf Bild anwenden!
+    finalCtx.filter = `
+    brightness(${filters.brightness}%)
+    contrast(${filters.contrast}%)
+    saturate(${filters.saturation}%)
+    grayscale(${filters.grayscale}%)
+    sepia(${filters.sepia}%)
+    invert(${filters.invert}%)
+  `;
+
+    // Das rohe Canvas-Bild ohne Filter holen und mit echten Filtern anwenden
     finalCtx.drawImage(canvas, 0, 0);
 
-    const imageData = finalCanvas.toDataURL(); // PNG mit Filtern
-
-    // In Galerie speichern
+    const imageData = finalCanvas.toDataURL();
     let images = JSON.parse(localStorage.getItem('galleryImages') || '[]');
     images.push(imageData);
     localStorage.setItem('galleryImages', JSON.stringify(images));
-
-    // Galerie neu laden
     loadGallery();
 });
 
