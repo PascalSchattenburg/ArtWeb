@@ -17,6 +17,8 @@ const filters = {
 // Kamera starten
 let currentStream;
 
+let useFrontCamera = true;
+
 function startCamera() {
     if (currentStream) {
         currentStream.getTracks().forEach(track => track.stop()); // ❗ Kamera freigeben
