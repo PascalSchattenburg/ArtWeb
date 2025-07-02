@@ -1,4 +1,5 @@
 // ----- script.js -----
+let isRecording = false;
 const video = document.getElementById('video');
 const canvas = document.getElementById('editor-canvas');
 const ctx = canvas.getContext('2d');
@@ -117,12 +118,16 @@ loadGallery();
 
 // 7) Video aufnehmen & Download-Link erstellen
 recButton.addEventListener('click', () => {
-  if (typeof MediaRecorder === 'undefined') {
-    alert('Videoaufnahme nicht unterstützt in diesem Browser.');
-    return;
-  }
-  if (recButton.textContent === '⏺️ Record Video') {
+  // Ensure canvas is up-to-date before starting/stopping
+  applyFilters();
+
+  if (!isRecording) {
+    if (typeof MediaRecorder === 'undefined') {
+      alert('Videoaufnahme nicht unterstützt in diesem Browser.');
+      return;
+    }
     chunks = [];
+    // Pick supported mime type
     const supportedTypes = [
       'video/mp4',
       'video/webm;codecs=vp9',
@@ -134,15 +139,15 @@ recButton.addEventListener('click', () => {
       alert('Kein unterstütztes Videoformat gefunden.');
       return;
     }
-    const stream = canvas.captureStream(30); // 30 FPS
+    // Start recording canvas
+    const stream = canvas.captureStream(30);
     recorder = new MediaRecorder(stream, { mimeType });
     recorder.ondataavailable = e => chunks.push(e.data);
     recorder.onstop = () => {
       const blob = new Blob(chunks, { type: mimeType });
       const url = URL.createObjectURL(blob);
       playback.src = url;
-
-      // Download-Link erstellen oder aktualisieren
+      // Create download link
       let dl = document.getElementById('download-video');
       if (dl) dl.remove();
       dl = document.createElement('a');
@@ -156,9 +161,11 @@ recButton.addEventListener('click', () => {
       playback.insertAdjacentElement('afterend', dl);
     };
     recorder.start();
+    isRecording = true;
     recButton.textContent = '⏹️ Stop Recording';
   } else {
     recorder.stop();
+    isRecording = false;
     recButton.textContent = '⏺️ Record Video';
   }
 });
