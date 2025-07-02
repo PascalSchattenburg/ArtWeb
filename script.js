@@ -1,82 +1,57 @@
-const video = document.getElementById('video');
-const canvas = document.getElementById('editor-canvas');
-const ctx = canvas.getContext('2d');
-const saveButton = document.getElementById('save-button');
-const captureButton = document.getElementById('capture-button');
-const gallery = document.getElementById('gallery');
+// ----- script.js -----
+const video      = document.getElementById('video');
+const canvas     = document.getElementById('editor-canvas');
+const ctx        = canvas.getContext('2d');
+const btnCapture = document.getElementById('capture-button');
+const btnSave    = document.getElementById('save-button');
+const recButton  = document.getElementById('rec-button');
+const playback   = document.getElementById('playback');
+const gallery    = document.getElementById('gallery');
 
 const filters = {
     brightness: 100,
-    contrast: 100,
+    contrast:   100,
     saturation: 100,
-    grayscale: 0,
-    sepia: 0,
-    invert: 0,
+    grayscale:   0,
+    sepia:       0,
+    invert:      0
 };
 
-// Kamera starten
-let currentStream;
+let originalImage = null;
+let recorder, chunks = [];
 
-let useFrontCamera = true;
+// 1) Kamera starten
+navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+    .then(stream => video.srcObject = stream)
+    .catch(err => alert('Kamera-Fehler: ' + err.message));
 
-function startCamera() {
-    if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop()); // ❗ Kamera freigeben
-    }
-
-    const constraints = {
-        video: {
-            facingMode: useFrontCamera ? 'user' : 'environment'
-        },
-        audio: false
-    };
-
-    navigator.mediaDevices.getUserMedia(constraints)
-        .then(stream => {
-            currentStream = stream;
-            video.srcObject = stream;
-        })
-        .catch(err => {
-            alert('Kamera konnte nicht gestartet werden: ' + err.message);
-        });
-}
-
-document.getElementById('toggle-camera').addEventListener('click', () => {
-    useFrontCamera = !useFrontCamera;
-    startCamera();
-});
-
-startCamera(); // Initial starten
-
-// Foto aufnehmen (nur das aktuelle Videobild ohne Filter ins Canvas kopieren)
-captureButton.addEventListener('click', () => {
+// 2) Bild aufnehmen
+btnCapture.addEventListener('click', () => {
+    // Rohbild ohne Filter ins Canvas malen
+    ctx.filter = 'none';
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Als Image laden
+    const dataUrl = canvas.toDataURL();
+    originalImage = new Image();
+    originalImage.onload = applyFilters;
+    originalImage.src = dataUrl;
 });
 
-// Filter ändern
+// 3) Regler abonnieren
 document.querySelectorAll('#controls input[type=range]').forEach(slider => {
     slider.addEventListener('input', () => {
         filters[slider.id] = slider.value;
-        applyCSSFilters(); // Vorschau anpassen
+        applyFilters();
     });
 });
 
-// CSS Vorschau (visuell)
-function applyCSSFilters() {
-    canvas.style.filter = `
-    brightness(${filters.brightness}%)
-    contrast(${filters.contrast}%)
-    saturate(${filters.saturation}%)
-    grayscale(${filters.grayscale}%)
-    sepia(${filters.sepia}%)
-    invert(${filters.invert}%)
-  `;
-}
-applyCSSFilters(); // Init
+// 4) Filter anwenden und Canvas neu zeichnen
+function applyFilters() {
+    if (!originalImage) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-// Canvas-Kontext-Filter anwenden (für Speicherung)
-function applyFiltersToContext(context) {
-    context.filter = `
+    ctx.filter = `
     brightness(${filters.brightness}%)
     contrast(${filters.contrast}%)
     saturate(${filters.saturation}%)
@@ -84,63 +59,91 @@ function applyFiltersToContext(context) {
     sepia(${filters.sepia}%)
     invert(${filters.invert}%)
   `;
+    ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+    ctx.filter = 'none';
 }
 
-// Bild speichern in LocalStorage und anzeigen
-saveButton.addEventListener('click', () => {
-    const finalCanvas = document.createElement('canvas');
-    finalCanvas.width = canvas.width;
-    finalCanvas.height = canvas.height;
-    const finalCtx = finalCanvas.getContext('2d');
+// 5) Gefiltertes Bild speichern
+btnSave.addEventListener('click', () => {
+    if (!originalImage) {
+        alert('Bitte zuerst ein Bild aufnehmen!');
+        return;
+    }
+    applyFilters();  // sicherstellen, dass Canvas aktuell ist
 
-    // Wende die visuellen Filter aus dem UI auf den finalen Kontext an
-    finalCtx.filter = `
-    brightness(${filters.brightness}%)
-    contrast(${filters.contrast}%)
-    saturate(${filters.saturation}%)
-    grayscale(${filters.grayscale}%)
-    sepia(${filters.sepia}%)
-    invert(${filters.invert}%)
-  `;
-
-    // ❗ WICHTIG: nicht liveBild, sondern dein aktuelles bearbeitetes canvas zeichnen
-    finalCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height);
-
-    const imageData = finalCanvas.toDataURL();
-    let images = JSON.parse(localStorage.getItem('galleryImages') || '[]');
-    images.push(imageData);
+    const dataURL = canvas.toDataURL();
+    const images = JSON.parse(localStorage.getItem('galleryImages') || '[]');
+    images.push(dataURL);
     localStorage.setItem('galleryImages', JSON.stringify(images));
     loadGallery();
 });
 
-// Galerie laden
+// 6) Galerie laden
 function loadGallery() {
-    gallery.innerHTML = ''; // leeren
+    gallery.innerHTML = '';
     const images = JSON.parse(localStorage.getItem('galleryImages') || '[]');
-    images.forEach((dataUrl, index) => {
+    images.forEach((src, idx) => {
+        const div = document.createElement('div');
+        div.style.textAlign = 'center';
+        div.style.margin = '5px';
+
         const img = document.createElement('img');
-        img.src = dataUrl;
+        img.src = src;
         img.width = 100;
 
-        const downloadBtn = document.createElement('a');
-        downloadBtn.href = dataUrl;
-        downloadBtn.download = `webart-${index}.png`;
-        downloadBtn.textContent = '⬇️';
+        const dl = document.createElement('a');
+        dl.href = src;
+        dl.download = `webart-${idx}.png`;
+        dl.textContent = '⬇️';
+        dl.style.display = 'block';
+        dl.style.marginTop = '4px';
 
-        const delBtn = document.createElement('button');
-        delBtn.textContent = '🗑️';
-        delBtn.onclick = () => {
-            images.splice(index, 1);
-            localStorage.setItem('galleryImages', JSON.stringify(images));
+        const del = document.createElement('button');
+        del.textContent = '🗑️';
+        del.style.fontSize = '12px';
+        del.style.padding = '4px 8px';
+        del.onclick = () => {
+            const imgs = JSON.parse(localStorage.getItem('galleryImages') || '[]');
+            imgs.splice(idx, 1);
+            localStorage.setItem('galleryImages', JSON.stringify(imgs));
             loadGallery();
         };
 
-        const container = document.createElement('div');
-        container.appendChild(img);
-        container.appendChild(downloadBtn);
-        container.appendChild(delBtn);
-        gallery.appendChild(container);
+        div.append(img, dl, del);
+        gallery.appendChild(div);
     });
 }
+loadGallery();
 
-loadGallery(); // beim Start laden
+// 7) Video aufnehmen & Download-Link erstellen
+recButton.addEventListener('click', () => {
+    if (recButton.textContent === '⏺️ Record Video') {
+        chunks = [];
+        const stream = canvas.captureStream(30);
+        recorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+        recorder.ondataavailable = e => chunks.push(e.data);
+        recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const url  = URL.createObjectURL(blob);
+            playback.src = url;
+
+            // Download-Link
+            let dl = document.getElementById('download-video');
+            if (dl) dl.remove();
+            dl = document.createElement('a');
+            dl.id = 'download-video';
+            dl.href = url;
+            dl.download = 'recording.webm';
+            dl.textContent = '⬇️ Download Video';
+            dl.style.display = 'block';
+            dl.style.textAlign = 'center';
+            dl.style.margin = '10px auto';
+            playback.insertAdjacentElement('afterend', dl);
+        };
+        recorder.start();
+        recButton.textContent = '⏹️ Stop Recording';
+    } else {
+        recorder.stop();
+        recButton.textContent = '⏺️ Record Video';
+    }
+});

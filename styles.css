@@ -48,3 +48,52 @@ button:hover {
 #controls input[type="range"] {
     width: 100%;
 }
+
+/* Record button matches other buttons */
+#rec-button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    margin: 10px 5px;
+    font-size: 16px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+#rec-button:hover {
+    background-color: #388e3c;
+}
+
+/* Playback video styling */
+#playback {
+    border: 2px solid #444;
+    border-radius: 8px;
+    margin: 10px auto;
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+/* Gallery item container */
+#gallery {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+#gallery div {
+    text-align: center;
+    margin: 5px;
+}
+#gallery img {
+    border: 1px solid #333;
+    border-radius: 4px;
+    max-width: 100%;
+    height: auto;
+}
+#gallery a, #gallery button {
+    margin-top: 5px;
+    display: block;
+    font-size: 12px;
+}
