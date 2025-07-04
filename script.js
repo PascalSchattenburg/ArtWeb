@@ -1,13 +1,13 @@
 // ----- script.js -----
 let isRecording = false;
-const video = document.getElementById('video');
-const canvas = document.getElementById('editor-canvas');
-const ctx = canvas.getContext('2d');
+const video      = document.getElementById('video');
+const canvas     = document.getElementById('editor-canvas');
+const ctx        = canvas.getContext('2d');
 const btnCapture = document.getElementById('capture-button');
-const btnSave = document.getElementById('save-button');
-const recButton = document.getElementById('rec-button');
-const playback = document.getElementById('playback');
-const gallery = document.getElementById('gallery');
+const btnSave    = document.getElementById('save-button');
+const recButton  = document.getElementById('rec-button');
+const playback   = document.getElementById('playback');
+const gallery    = document.getElementById('gallery');
 
 const filters = {
   brightness: 100,
@@ -23,8 +23,8 @@ let recorder, chunks = [];
 
 // 1) Kamera starten
 navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-  .then(stream => video.srcObject = stream)
-  .catch(err => alert('Kamera-Fehler: ' + err.message));
+    .then(stream => video.srcObject = stream)
+    .catch(err => alert('Kamera-Fehler: ' + err.message));
 
 // 2) Bild aufnehmen
 btnCapture.addEventListener('click', () => {
@@ -73,86 +73,84 @@ btnSave.addEventListener('click', () => {
   applyFilters();  // sicherstellen, dass Canvas aktuell ist
 
   const dataURL = canvas.toDataURL();
-  const images = JSON.parse(localStorage.getItem('galleryImages') || '[]');
-  images.push(dataURL);
-  localStorage.setItem('galleryImages', JSON.stringify(images));
+  const items = JSON.parse(localStorage.getItem('galleryItems') || '[]');
+  items.push({ type: 'image', src: dataURL });
+  localStorage.setItem('galleryItems', JSON.stringify(items));
   loadGallery();
 });
 
 // 6) Galerie laden
 function loadGallery() {
-  gallery.innerHTML = '';
-  const images = JSON.parse(localStorage.getItem('galleryImages') || '[]');
-  images.forEach((src, idx) => {
-    const div = document.createElement('div');
-    div.style.textAlign = 'center';
-    div.style.margin = '5px';
+    gallery.innerHTML = '';
+    const items = JSON.parse(localStorage.getItem('galleryItems') || '[]');
+    items.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.style.textAlign = 'center';
+        div.style.margin = '5px';
 
-    const img = document.createElement('img');
-    img.src = src;
-    img.width = 100;
-
-    const dl = document.createElement('a');
-    dl.href = src;
-    dl.download = `webart-${idx}.png`;
-    dl.textContent = '⬇️';
-    dl.style.display = 'block';
-    dl.style.marginTop = '4px';
-
-    const del = document.createElement('button');
-    del.textContent = '🗑️';
-    del.style.fontSize = '12px';
-    del.style.padding = '4px 8px';
-    del.onclick = () => {
-      const imgs = JSON.parse(localStorage.getItem('galleryImages') || '[]');
-      imgs.splice(idx, 1);
-      localStorage.setItem('galleryImages', JSON.stringify(imgs));
-      loadGallery();
-    };
-
-    div.append(img, dl, del);
-    gallery.appendChild(div);
-  });
+        let thumb;
+        if (item.type === 'image') {
+            thumb = document.createElement('img');
+            thumb.src = item.src;
+            thumb.width = 100;
+        } else {
+            thumb = document.createElement('video');
+            thumb.src = item.src;
+            thumb.width = 100;
+            thumb.muted = true;
+            thumb.loop = true;
+            thumb.play();
+        }
+        thumb.style.cursor = 'pointer';
+        thumb.onclick = () => openLightbox(idx);
+        div.appendChild(thumb);
+        gallery.appendChild(div);
+    });
 }
 loadGallery();
 
 // 7) Video aufnehmen & Download-Link erstellen
 recButton.addEventListener('click', () => {
-  // Ensure canvas is up-to-date before starting/stopping
-  applyFilters();
+  applyFilters(); // stell sicher, dass das Canvas up-to-date ist
 
   if (!isRecording) {
     if (typeof MediaRecorder === 'undefined') {
-      alert('Videoaufnahme nicht unterstützt in diesem Browser.');
-      return;
+      return alert('Videoaufnahme nicht unterstützt');
     }
     chunks = [];
-    // Pick supported mime type
-    const supportedTypes = [
+
+    // verfügbares Format wählen
+    const supported = [
       'video/mp4',
       'video/webm;codecs=vp9',
       'video/webm;codecs=vp8',
       'video/webm'
     ];
-    const mimeType = supportedTypes.find(type => MediaRecorder.isTypeSupported(type));
+    const mimeType = supported.find(t => MediaRecorder.isTypeSupported(t));
     if (!mimeType) {
-      alert('Kein unterstütztes Videoformat gefunden.');
-      return;
+      return alert('Kein unterstütztes Videoformat gefunden');
     }
-    // Start recording canvas
-    const stream = canvas.captureStream(30);
+
+    // benutze den Live-Video-Stream, nicht canvas.captureStream()
+    const stream = video.srcObject;
     recorder = new MediaRecorder(stream, { mimeType });
     recorder.ondataavailable = e => chunks.push(e.data);
     recorder.onstop = () => {
       const blob = new Blob(chunks, { type: mimeType });
-      const url = URL.createObjectURL(blob);
+      const url  = URL.createObjectURL(blob);
       playback.src = url;
-      // Create download link
+
+      const items = JSON.parse(localStorage.getItem('galleryItems') || '[]');
+      items.push({ type: 'video', src: url });
+      localStorage.setItem('galleryItems', JSON.stringify(items));
+      loadGallery();
+
+      // Download-Link updaten
       let dl = document.getElementById('download-video');
       if (dl) dl.remove();
       dl = document.createElement('a');
-      dl.id = 'download-video';
-      dl.href = url;
+      dl.id       = 'download-video';
+      dl.href     = url;
       dl.download = mimeType.startsWith('video/mp4') ? 'recording.mp4' : 'recording.webm';
       dl.textContent = '⬇️ Download Video';
       dl.style.display = 'block';
@@ -160,6 +158,7 @@ recButton.addEventListener('click', () => {
       dl.style.margin = '10px auto';
       playback.insertAdjacentElement('afterend', dl);
     };
+
     recorder.start();
     isRecording = true;
     recButton.textContent = '⏹️ Stop Recording';
@@ -168,4 +167,63 @@ recButton.addEventListener('click', () => {
     isRecording = false;
     recButton.textContent = '⏺️ Record Video';
   }
+});
+
+let currentIndex = 0;
+
+function openLightbox(idx) {
+    const lightbox = document.getElementById('lightbox');
+    currentIndex = idx;
+    showItem(idx);
+    lightbox.style.display = 'block';
+}
+
+function closeLightbox() {
+    document.getElementById('lightbox').style.display = 'none';
+    document.getElementById('lightbox-content').innerHTML = '';
+}
+
+function showItem(idx) {
+    const items = JSON.parse(localStorage.getItem('galleryItems') || '[]');
+    const item = items[idx];
+    const container = document.getElementById('lightbox-content');
+    container.innerHTML = '';
+    if (item.type === 'image') {
+        const img = document.createElement('img');
+        img.src = item.src;
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '100%';
+        container.appendChild(img);
+    } else {
+        const vid = document.createElement('video');
+        vid.src = item.src;
+        vid.controls = true;
+        vid.style.maxWidth = '100%';
+        vid.style.maxHeight = '100%';
+        container.appendChild(vid);
+    }
+}
+
+document.getElementById('lightbox-close').onclick = closeLightbox;
+document.getElementById('lightbox-prev').onclick = () => {
+    const items = JSON.parse(localStorage.getItem('galleryItems') || '[]');
+    currentIndex = (currentIndex - 1 + items.length) % items.length;
+    showItem(currentIndex);
+};
+document.getElementById('lightbox-next').onclick = () => {
+    const items = JSON.parse(localStorage.getItem('galleryItems') || '[]');
+    currentIndex = (currentIndex + 1) % items.length;
+    showItem(currentIndex);
+};
+
+// Swipe support for mobile
+let startX = null;
+const lbContent = document.getElementById('lightbox-content');
+lbContent.addEventListener('touchstart', e => { startX = e.touches[0].clientX; });
+lbContent.addEventListener('touchend', e => {
+    if (startX === null) return;
+    const delta = e.changedTouches[0].clientX - startX;
+    if (delta > 50) document.getElementById('lightbox-prev').onclick();
+    else if (delta < -50) document.getElementById('lightbox-next').onclick();
+    startX = null;
 });
