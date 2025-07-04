@@ -1,5 +1,7 @@
 // ----- script.js -----
 let isRecording = false;
+let useFrontCamera = true;
+let currentStream = null;
 const video      = document.getElementById('video');
 const canvas     = document.getElementById('editor-canvas');
 const ctx        = canvas.getContext('2d');
@@ -21,10 +23,24 @@ const filters = {
 let originalImage = null;
 let recorder, chunks = [];
 
-// 1) Kamera starten
-navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-    .then(stream => video.srcObject = stream)
+// 1) Kamera starten mit Umschalt-Möglichkeit
+function startCamera() {
+  if (currentStream) {
+    currentStream.getTracks().forEach(track => track.stop());
+  }
+  const constraints = {
+    video: { facingMode: useFrontCamera ? 'user' : 'environment' },
+    audio: false
+  };
+  navigator.mediaDevices.getUserMedia(constraints)
+    .then(stream => {
+      currentStream = stream;
+      video.srcObject = stream;
+    })
     .catch(err => alert('Kamera-Fehler: ' + err.message));
+}
+// Initiale Kamera
+startCamera();
 
 // 2) Bild aufnehmen
 btnCapture.addEventListener('click', () => {
@@ -78,6 +94,15 @@ btnSave.addEventListener('click', () => {
   localStorage.setItem('galleryItems', JSON.stringify(items));
   loadGallery();
 });
+
+// Kamera umschalten
+const btnToggle = document.getElementById('toggle-camera');
+if (btnToggle) {
+  btnToggle.addEventListener('click', () => {
+    useFrontCamera = !useFrontCamera;
+    startCamera();
+  });
+}
 
 // 6) Galerie laden
 function loadGallery() {
